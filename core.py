@@ -68,3 +68,33 @@ class Blockchain:
         # Упорядочиваем хеш, иначе у нас будут противоречивые хеши
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
+
+    def proof_of_work(self, last_proof):
+        """
+        Простой алгоритм доказательства работы:
+        - Найдите число p, которое, будучи хэшировано с доказательством предыдущего блока,
+          дает хэш с четырьмя нулями в начале
+
+        :param last_proof: <int> Предыдушее доказательство
+        :return: <int> Найденное доказательство
+        """
+
+        proof = 0
+        while self.valid_proof(last_proof, proof) is False:
+            proof += 1
+
+        return proof
+
+    @staticmethod
+    def valid_proof(last_proof, proof):
+        """
+        Подтверждение доказательства работы: Содержит ли hash(last_proof, proof) 4 заглавных нуля?
+
+        :param last_proof: <int> Предыдущее доказательство
+        :param proof: <int> Текущее доказательство
+        :return: <bool> True, если правильно, False, если нет.
+        """
+
+        guess = f'{last_proof}{proof}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:4] == "0000"
