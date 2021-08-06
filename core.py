@@ -2,7 +2,9 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from time import time
+from urllib.parse import urlparse
 
+import requests
 from peewee import DoesNotExist
 from playhouse.shortcuts import model_to_dict
 
@@ -11,6 +13,7 @@ from models import Chain
 
 @dataclass
 class Blockchain:
+    nodes: set = field(default_factory=set)
     current_transactions: list = field(default_factory=list)
 
     def __post_init__(self):
@@ -109,3 +112,12 @@ class Blockchain:
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
+
+    def register_node(self, address):
+        """
+        Вносим новый узел в список узлов
+
+        :param address: <str> адрес узла, пример: 'http://192.168.0.5:5000'
+        :return: None
+        """
+        self.nodes.add(address)

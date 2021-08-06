@@ -1,7 +1,8 @@
 from asyncio import sleep
 from uuid import uuid4
 
-from fastapi import FastAPI, status
+import uvicorn
+from fastapi import FastAPI, status, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import PlainTextResponse
 from icecream import ic
@@ -73,3 +74,16 @@ def new_transaction(transactions: Transactions):
 @app.get('/chain', status_code=status.HTTP_200_OK)
 def full_chain():
     return [x.__data__ for x in Chain.select()]
+
+
+@app.post('/nodes/register', status_code=status.HTTP_201_CREATED)
+def register_nodes(request: Request):
+
+    node = request.client.host
+    blockchain.register_node(node)
+
+    response = {
+        'message': 'New nodes have been added',
+        'total_nodes': list(blockchain.nodes),
+    }
+    return response
