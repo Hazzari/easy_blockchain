@@ -1,10 +1,15 @@
+from asyncio import sleep
 from uuid import uuid4
 
 from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import PlainTextResponse
+from icecream import ic
 from pydantic import BaseModel
+
 from core import Blockchain
+from models import Chain
+
 
 app = FastAPI()
 node_identifier = str(uuid4()).replace('-', '')
@@ -25,10 +30,10 @@ def validation_exception_handler():
 
 
 @app.get("/mine", status_code=status.HTTP_200_OK)
-def mine():
+async def mine():
     # Мы запускаем алгоритм подтверждения работы, чтобы получить следующее подтверждение…
     last_block = blockchain.last_block
-    last_proof = last_block['proof']
+    last_proof = last_block.proof
     proof = blockchain.proof_of_work(last_proof)
 
     # Мы должны получить вознаграждение за найденное подтверждение
@@ -45,11 +50,12 @@ def mine():
 
     response = {
         'message': "New Block Forged",
-        'index': block['index'],
-        'transactions': block['transactions'],
-        'proof': block['proof'],
-        'previous_hash': block['previous_hash'],
+        'index': block.index,
+        'transactions': block.transactions,
+        'proof': block.proof,
+        'previous_hash': block.previous_hash,
     }
+    await sleep(1)
     return response
 
 
@@ -64,10 +70,6 @@ def new_transaction(transactions: Transactions):
     return response
 
 
-@app.get('/chain')
+@app.get('/chain', status_code=status.HTTP_200_OK)
 def full_chain():
-    response = {
-        'chain': blockchain.chain,
-        'length': len(blockchain.chain),
-    }
-    return response, 200
+    return [x.__data__ for x in Chain.select()]

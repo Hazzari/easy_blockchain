@@ -3,14 +3,21 @@ import json
 from dataclasses import dataclass, field
 from time import time
 
+from peewee import DoesNotExist
+from playhouse.shortcuts import model_to_dict
+
+from models import Chain
+
 
 @dataclass
 class Blockchain:
-    chain: list = field(default_factory=list)
     current_transactions: list = field(default_factory=list)
 
     def __post_init__(self):
-        self.new_block(previous_hash=1, proof=100)
+        try:
+            Chain.select().order_by(Chain.index.desc()).get()
+        except DoesNotExist:
+            self.new_block(previous_hash=1, proof=100)
 
     def new_block(self, proof, previous_hash=None):
         """
@@ -21,18 +28,21 @@ class Blockchain:
         :return: <dict> Новый блок
         """
 
-        block = {
-            'index': len(self.chain) + 1,
-            'timestamp': time(),
-            'transactions': self.current_transactions,
-            'proof': proof,
-            'previous_hash': previous_hash or self.hash(self.chain[-1]),
-        }
+        try:
+            last_block = Chain.select().order_by(Chain.id.desc()).get().index
+            index = last_block + 1
+        except DoesNotExist:
+            index = 1
+
+        block = Chain.create(index=index,
+                             timestamp=time(),
+                             transactions=self.current_transactions,
+                             proof=proof,
+                             previous_hash=previous_hash or self.hash(
+                                     index), )
 
         # Перезагрузка текущего списка транзакций
         self.current_transactions = []
-
-        self.chain.append(block)
         return block
 
     def new_transaction(self, sender, recipient, amount):
@@ -50,14 +60,15 @@ class Blockchain:
             'amount': amount,
         })
 
-        return self.last_block['index'] + 1
+        return self.last_block.index + 1
 
     @property
     def last_block(self):
-        return self.chain[-1]
+        return Chain.select().order_by(Chain.id.desc()).get()
 
     @staticmethod
     def hash(block):
+
         """
         Создает хэш SHA-256 блока
 
@@ -66,7 +77,7 @@ class Blockchain:
         """
 
         # Упорядочиваем хеш, иначе у нас будут противоречивые хеши
-        block_string = json.dumps(block, sort_keys=True).encode()
+        block_string = json.dumps(model_to_dict(block), sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
 
     def proof_of_work(self, last_proof):
