@@ -1,11 +1,9 @@
 from asyncio import sleep
 from uuid import uuid4
 
-import uvicorn
-from fastapi import FastAPI, status, Request
+from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import PlainTextResponse
-from icecream import ic
 from pydantic import BaseModel
 
 from core import Blockchain
@@ -22,6 +20,12 @@ class Transactions(BaseModel):
     sender: str
     recipient: str
     amount: int
+
+
+class Node(BaseModel):
+    # Схема ноды
+    host: str
+    port: str
 
 
 @app.exception_handler(RequestValidationError)
@@ -77,13 +81,28 @@ def full_chain():
 
 
 @app.post('/nodes/register', status_code=status.HTTP_201_CREATED)
-def register_nodes(request: Request):
-
-    node = request.client.host
+def register_nodes(node: Node):
     blockchain.register_node(node)
 
     response = {
         'message': 'New nodes have been added',
         'total_nodes': list(blockchain.nodes),
     }
+    return response
+
+
+@app.get('/nodes/resolve', status_code=status.HTTP_200_OK)
+def consensus():
+    replaced = blockchain.resolve_conflicts()
+
+    if replaced:
+        response = {
+            'message': 'Наша цепь была заменена',
+            'new_chain': [x.__data__ for x in Chain.select()]
+        }
+    else:
+        response = {
+            'message': 'Наша сеть авторитетная',
+            'chain': [x.__data__ for x in Chain.select()]
+        }
     return response

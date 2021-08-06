@@ -2,7 +2,6 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from time import time
-from urllib.parse import urlparse
 
 import requests
 from peewee import DoesNotExist
@@ -80,7 +79,9 @@ class Blockchain:
         """
 
         # Упорядочиваем хеш, иначе у нас будут противоречивые хеши
-        block_string = json.dumps(model_to_dict(block), sort_keys=True).encode()
+        if isinstance(block, Chain):
+            block = model_to_dict(block)
+        block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
 
     def proof_of_work(self, last_proof):
@@ -113,11 +114,89 @@ class Blockchain:
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
 
-    def register_node(self, address):
+    def register_node(self, node):
         """
         Вносим новый узел в список узлов
 
-        :param address: <str> адрес узла, пример: 'http://192.168.0.5:5000'
+        :param node: <str> адрес узла, пример: 'http://192.168.0.5:5000'
         :return: None
         """
-        self.nodes.add(address)
+
+        self.nodes.add(f'{node.host}:{node.port}')
+        self.nodes.add(f'192.168.1.215:8001')
+
+    def valid_chain(self, chain):
+        """
+        Проверяем, является ли внесенный в блок хеш корректным
+
+        :param chain: <list> blockchain
+        :return: <bool> True если она действительна, False, если нет
+        """
+
+        last_block = chain[0]
+        current_index = 1
+
+        while current_index < len(chain):
+            block = chain[current_index]
+            # Проверьте правильность хеша блока
+            if block['previous_hash'] != self.hash(last_block):
+                return False
+
+            # Проверяем, является ли подтверждение работы корректным
+            if not self.valid_proof(last_block['proof'], block['proof']):
+                return False
+
+            last_block = block
+            current_index += 1
+
+        return True
+
+    def resolve_conflicts(self):
+        """
+        Это наш алгоритм Консенсуса, он разрешает конфликты,
+        заменяя нашу цепь на самую длинную в цепи
+
+        :return: <bool> True, если бы наша цепь была заменена, False, если нет.
+        """
+
+        neighbours = self.nodes
+        new_chain = None
+
+        # Ищем только цепи, длиннее нашей
+        max_length = Chain.select().order_by(Chain.id.desc()).get().index
+
+        # Захватываем и проверяем все цепи из всех узлов сети
+        for node in neighbours:
+            try:
+                response = requests.get(f'http://{node}/chain')
+            except Exception:
+                continue
+
+            if response.status_code == 200:
+                length = len(response.json())
+                chain = response.json()
+
+                # Проверяем, является ли длина самой длинной, а цепь - валидной
+                if length > max_length and self.valid_chain(chain):
+                    # ic(chain)
+
+                    max_length = length
+                    new_chain = chain
+
+        # Заменяем нашу цепь, если найдем другую валидную и более длинную
+        if new_chain:
+            # Очишаем базу данных
+            Chain.delete().execute()
+
+            for x in new_chain:
+                Chain.create(
+                        id=x.get('id'),
+                        index=x.get('index'),
+                        previous_hash=x.get('previous_hash'),
+                        proof=x.get('proof'),
+                        timestamp=x.get('timestamp'),
+                        transactions=x.get('transactions'), )
+
+            return True
+
+        return False
