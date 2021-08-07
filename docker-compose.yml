@@ -1,0 +1,17 @@
+version: "2.4"
+services:
+  blockchain:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blockchain
+    restart: always
+    volumes:
+      - ./app/db:/db
+    working_dir:
+      /app
+
+    command: sh -c "uvicorn --port 5000 --host 0.0.0.0 server:app"
+    ports:
+      - 5000:5000
+

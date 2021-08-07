@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "easy_blockchain"
 version = "0.1.0"
-description = ""
+description = "Learn blockchain"
 authors = ["Aleksan <Dev.aleksan@gmail.com>"]
 
 [tool.poetry.dependencies]
@@ -10,9 +10,9 @@ requests = "^2.26.0"
 fastapi = "^0.68.0"
 uvicorn = "^0.14.0"
 peewee = "^3.14.4"
-icecream = "^2.1.1"
 
 [tool.poetry.dev-dependencies]
+icecream = "^2.1.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
